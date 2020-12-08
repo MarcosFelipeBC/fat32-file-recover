@@ -10,7 +10,6 @@ int main (){
 		return -1;
 	}
 	unsigned char fat_volume_id[512];
-
 	read(usb_file, fat_volume_id, 512);
 
 	int bytes_per_sector = fat_volume_id[0x0B] + (fat_volume_id[0x0C] * 256);
