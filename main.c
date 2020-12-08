@@ -19,7 +19,7 @@ int main (){
 	int num_of_fats = fat_volume_id[0x10];
 	int sectors_per_fat = *((unsigned int *)(fat_volume_id+0x24));
 	int root_cluster = *((unsigned int *)(fat_volume_id+0x2C));
-
+    
 	printf("Bytes per sector: %d\n", bytes_per_sector);
 	printf("Sectors per cluster: %d\n", sectors_per_cluster);
 	printf("Reserved sectors: %d\n", reserved_sectors);
