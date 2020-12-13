@@ -52,7 +52,7 @@ int checkRecovery(char* file_entry) {
 }
 
 void recoverFATs(char *file_entry) {
-	//Recover FAT1
+	//Recover file at FAT#1
 	int first_cluster = getFileFirstCluster(file_entry);
 	int sz = getFileSize(file_entry);
 	int used_clusters = (sz / cluster_bytes);
@@ -72,13 +72,18 @@ void recoverFATs(char *file_entry) {
 	new_clusters_entry[left+3] = 0x0F;
 	write(usb_file, new_clusters_entry, 4*used_clusters);
 
-	//Recover FAT2
+	//Recover file at FAT#2
 	lseek(usb_file, (reserved_sectors + sectors_per_fat) * bytes_per_sector + first_cluster * 4, SEEK_SET);
 	write(usb_file, new_clusters_entry, 4*used_clusters);
 }
 
 int main (){
-    usb_file = open("/dev/sdb1", O_RDWR); //This may change to you
+	char device_filename[10];
+	printf("Enter with your device filename: ");
+	scanf("%s", device_filename);
+	char device_path[20];
+	sprintf(device_path, "/dev/%s", device_filename);
+    usb_file = open(device_path, O_RDWR);
     if(usb_file < 0){
         printf("FATAL ERROR\n");
         return -1;
@@ -114,6 +119,7 @@ int main (){
     }
 	lseek(usb_file, root_directory_sector * bytes_per_sector, SEEK_SET);
     write(usb_file, buffer, cluster_bytes);
+
     close(usb_file);
 	printf("Recovered a total of %d files\n", files_recovered);
     return 0;
