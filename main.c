@@ -25,56 +25,69 @@ unsigned char toUpper(unsigned char x) {
     return x;
 }
 
-unsigned int getFileFirstCluster(char* file_entry) {
+unsigned int getFileFirstCluster(unsigned char* file_entry) {
     unsigned int hi = (unsigned int)file_entry[20] + ((unsigned int)file_entry[21] * 256);
     unsigned int lo = (unsigned int)file_entry[26] + ((unsigned int)file_entry[27] * 256);
     return lo + (hi * 256 * 256);
 }
 
-unsigned int getFileSize(char* file_entry) {
-    unsigned int sz = (unsigned int)file_entry[28] + ((unsigned int)file_entry[29] * 256) + ((unsigned int)file_entry[30] * 256*16) + ((unsigned int)file_entry[31] * 256*256);
+unsigned int getFileSize(unsigned char* file_entry) {
+    unsigned int sz = (unsigned int)file_entry[28] + ((unsigned int)file_entry[29] * 256) + ((unsigned int)file_entry[30] * 256*256) + ((unsigned int)file_entry[31] * 256*256*256);
     return sz;
 }
 
-int checkRecovery(char* file_entry) {
+int checkRecovery(unsigned char* file_entry) {
     int first_cluster = getFileFirstCluster(file_entry);
     int sz = getFileSize(file_entry);
     int used_clusters = (sz / cluster_bytes);
     if (sz % cluster_bytes != 0) used_clusters++;
+	unsigned char aux_buffer[4];
     lseek(usb_file, reserved_sectors * bytes_per_sector + first_cluster * 4, SEEK_SET);
-    read(usb_file, buffer, 4 * used_clusters);
-    for (int i=0; i<4*used_clusters; i++) {
-        if((int)buffer[i] != 0) {
-            return 0;
-        }
-    }
+    for (int i=0; i<used_clusters; i++) {
+		read(usb_file, aux_buffer, 4);
+        for (int j=0; j<4; j++) {
+			if((int)aux_buffer[j] != 0) {
+				return 0;
+			}
+		}
+	}
     return 1;
 }
 
-void recoverFATs(char *file_entry) {
+void recoverFATs(unsigned char *file_entry) {
     //Recover file at FAT#1
     int first_cluster = getFileFirstCluster(file_entry);
     int sz = getFileSize(file_entry);
     int used_clusters = (sz / cluster_bytes);
     if (sz % cluster_bytes != 0) used_clusters++;
     lseek(usb_file, reserved_sectors * bytes_per_sector + first_cluster * 4, SEEK_SET);
-    unsigned char new_clusters_entry[4 * used_clusters];
+    unsigned char new_clusters_entry[4];
 
     for (int i=0, cluster = first_cluster; i<4*(used_clusters-1); i += 4, cluster++) {
         unsigned int val = cluster + 1;
         for (int j=0; j<4; j++) {
-            new_clusters_entry[i+j] = val & ((1 << 8)-1);
+            new_clusters_entry[j] = val & ((1 << 8)-1);
             val >>= 8;
         }
+		write(usb_file, new_clusters_entry, 4);
     }
-    int left = 4*(used_clusters-1);
-    new_clusters_entry[left] = new_clusters_entry[left+1] = new_clusters_entry[left+2] = 0xFF;
-    new_clusters_entry[left+3] = 0x0F;
-    write(usb_file, new_clusters_entry, 4*used_clusters);
+    new_clusters_entry[0] = new_clusters_entry[1] = new_clusters_entry[2] = 0xFF;
+    new_clusters_entry[3] = 0x0F;
+    write(usb_file, new_clusters_entry, 4);
 
     //Recover file at FAT#2
     lseek(usb_file, (reserved_sectors + sectors_per_fat) * bytes_per_sector + first_cluster * 4, SEEK_SET);
-    write(usb_file, new_clusters_entry, 4*used_clusters);
+	for (int i=0, cluster = first_cluster; i<4*(used_clusters-1); i += 4, cluster++) {
+        unsigned int val = cluster + 1;
+        for (int j=0; j<4; j++) {
+            new_clusters_entry[j] = val & ((1 << 8)-1);
+            val >>= 8;
+        }
+		write(usb_file, new_clusters_entry, 4);
+    }
+	new_clusters_entry[0] = new_clusters_entry[1] = new_clusters_entry[2] = 0xFF;
+    new_clusters_entry[3] = 0x0F;
+    write(usb_file, new_clusters_entry, 4);
 }
 
 int main (){
@@ -104,7 +117,7 @@ int main (){
     int files_recovered = 0;
     for (int i=0; i<cluster_bytes; i += 32) {
         if(buffer[i] == 0xE5) {
-            char *file_entry;
+            unsigned char *file_entry;
             file_entry = (char *)malloc(sizeof(char)*32);
             for (int j=i+32; j<i+64; j++) file_entry[j-(i+32)] = buffer[j];
             if(!checkRecovery(file_entry)) continue ;
@@ -113,6 +126,7 @@ int main (){
             buffer[i+32] = toUpper(first_char);
             buffer[i] = 'A';
             files_recovered++;
+			i+=32;
         }
     }
     lseek(usb_file, root_directory_sector * bytes_per_sector, SEEK_SET);
