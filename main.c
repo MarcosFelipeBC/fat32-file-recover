@@ -37,9 +37,9 @@ unsigned int getFileSize(unsigned char* file_entry) {
 }
 
 int checkRecovery(unsigned char* file_entry) {
-    int first_cluster = getFileFirstCluster(file_entry);
-    int sz = getFileSize(file_entry);
-    int used_clusters = (sz / cluster_bytes);
+    int first_cluster = getFileFirstCluster(file_entry); //quantidade de clusters antes do primeiro cluster que contém o arquivo
+    int sz = getFileSize(file_entry); //quantidade de bytes do arquivo
+    int used_clusters = (sz / cluster_bytes); //baseado no tamanho de arquivos, este valor representa a quantidade de clusters que o arquivo deve ocupar
     if (sz % cluster_bytes != 0) used_clusters++;
 	unsigned char aux_buffer[4];
     lseek(usb_file, reserved_sectors * bytes_per_sector + first_cluster * 4, SEEK_SET);
@@ -51,6 +51,7 @@ int checkRecovery(unsigned char* file_entry) {
 			}
 		}
 	}
+    //TODO: Check the second FAT too
     return 1;
 }
 
@@ -103,14 +104,14 @@ int main (){
     }
     read(usb_file, buffer, 512);
 
-    bytes_per_sector = buffer[0x0B] + (buffer[0x0C] * 256);
-    sectors_per_cluster = buffer[0x0D];
-    reserved_sectors = buffer[0x0E] + (buffer[0x0F] * 256);
-    num_of_fats = buffer[0x10];
-    sectors_per_fat = *((unsigned int *)(buffer+0x24));
-    root_cluster = *((unsigned int *)(buffer+0x2C));
-    root_directory_sector = reserved_sectors + (num_of_fats * sectors_per_fat);
-    cluster_bytes = sectors_per_cluster * bytes_per_sector;
+    bytes_per_sector = buffer[0x0B] + (buffer[0x0C] * 256); //quantidade de bytes por setor
+    sectors_per_cluster = buffer[0x0D]; //quantidade de setores por cluster
+    reserved_sectors = buffer[0x0E] + (buffer[0x0F] * 256); //quantidade de setores reservados
+    num_of_fats = buffer[0x10]; //número de FATs
+    sectors_per_fat = *((unsigned int *)(buffer+0x24)); //quantidade de setores por FAT
+    root_cluster = *((unsigned int *)(buffer+0x2C)); //índice do root cluster
+    root_directory_sector = reserved_sectors + (num_of_fats * sectors_per_fat); //quantidade de setores antes do root directory
+    cluster_bytes = sectors_per_cluster * bytes_per_sector; //quantidade de bytes por cluster
 
     lseek(usb_file, root_directory_sector * bytes_per_sector, SEEK_SET);
     read(usb_file, buffer, cluster_bytes);
@@ -118,7 +119,7 @@ int main (){
     for (int i=0; i<cluster_bytes; i += 32) {
         if(buffer[i] == 0xE5) {
             unsigned char *file_entry;
-            file_entry = (char *)malloc(sizeof(char)*32);
+            file_entry = (unsigned char *)malloc(sizeof(unsigned char)*32);
             for (int j=i+32; j<i+64; j++) file_entry[j-(i+32)] = buffer[j];
             if(!checkRecovery(file_entry)) continue ;
             recoverFATs(file_entry);
