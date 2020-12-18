@@ -14,6 +14,8 @@ int sectors_per_fat;
 int root_cluster;
 int root_directory_sector;
 int cluster_bytes;
+int files_selected_amount;
+char *file_list[105];
 
 int usb_file;
 unsigned char buffer[BUFFER_SZ];
@@ -51,7 +53,16 @@ int checkRecovery(unsigned char* file_entry) {
 			}
 		}
 	}
-    //TODO: Check the second FAT too
+    
+    lseek(usb_file, (reserved_sectors + sectors_per_fat) * bytes_per_sector + first_cluster * 4, SEEK_SET);
+    for (int i=0; i<used_clusters; i++) {
+		read(usb_file, aux_buffer, 4);
+        for (int j=0; j<4; j++) {
+			if((int)aux_buffer[j] != 0) {
+				return 0;
+			}
+		}
+	}
     return 1;
 }
 
@@ -91,6 +102,39 @@ void recoverFATs(unsigned char *file_entry) {
     write(usb_file, new_clusters_entry, 4);
 }
 
+int isAtFileList(unsigned char *file_entry, char firstLetter) {
+    char *filename = (char *)malloc(sizeof(char)*9);
+    filename[0] = toUpper(firstLetter);
+    int end_pos = 8;
+    for (int i=1; i<8; i++){
+        if(file_entry[i] == 0x20) {
+            end_pos = i;
+            break;
+        }
+        filename[i] = file_entry[i];
+    }
+    filename[end_pos] = '\0';
+
+    char *extension = (char *)malloc(sizeof(char)*4);
+    end_pos = 3;
+    for (int i=8; i<11; i++) {
+        if(file_entry[i] == 0x20) {
+            end_pos = i;
+            break;
+        }
+        extension[i] = file_entry[i];
+    }
+    extension[end_pos] = '\0';
+    strcat(filename, ".");
+    strcat(filename, extension);
+    for (int i=0; i<files_selected_amount; i++) {
+        if(strcmp(filename, file_list[i]) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 int main (){
     char device_filename[10];
     printf("Enter with your device filename: ");
@@ -113,6 +157,28 @@ int main (){
     root_directory_sector = reserved_sectors + (num_of_fats * sectors_per_fat); //quantidade de setores antes do root directory
     cluster_bytes = sectors_per_cluster * bytes_per_sector; //quantidade de bytes por cluster
 
+    printf("Recovery options:\n");
+    printf("1 - Recover all possible files\n");
+    printf("2 - Recover some given files if possible\n");
+    printf("3 - Recover all possible files except the given ones\n\n");
+    printf("Type the number of your recovery option (type an invalid number to quit): ");
+    int option;
+    scanf("%d", &option);
+    if(option < 1 || option > 3) return 0;
+    if(option != 1) {
+        printf("Type how many files you want to select (up to 100): ");
+        scanf("%d", &files_selected_amount);
+        printf("\nType the name of each file with extension one per line:\n(Note: The name of the files are not case sensitive");
+        for (int i=0; i<files_selected_amount; i++) {
+            file_list[i] = (char *)malloc(sizeof(char)*20);
+            scanf("%s", file_list[i]);
+            for (int j=0; j<strlen(file_list[i]); j++) {
+                char c = file_list[i][j];
+                if(c >= 'a' && c <= 'z') file_list[i][j] = toUpper(c);
+            }
+        }
+    }
+
     lseek(usb_file, root_directory_sector * bytes_per_sector, SEEK_SET);
     read(usb_file, buffer, cluster_bytes);
     int files_recovered = 0;
@@ -121,13 +187,25 @@ int main (){
             unsigned char *file_entry;
             file_entry = (unsigned char *)malloc(sizeof(unsigned char)*32);
             for (int j=i+32; j<i+64; j++) file_entry[j-(i+32)] = buffer[j];
-            if(!checkRecovery(file_entry)) continue ;
+            
+            if(option == 2 && !isAtFileList(file_entry, buffer[i+1])) {
+                i += 32;
+                continue ;
+            }
+            if(option == 3 && isAtFileList(file_entry, buffer[i+1])) {
+                i += 32;
+                continue ;
+            }
+            if(!checkRecovery(file_entry)){
+                i += 32;
+                continue ;
+            }
             recoverFATs(file_entry);
             unsigned char first_char = buffer[i+1];
             buffer[i+32] = toUpper(first_char);
             buffer[i] = 'A';
             files_recovered++;
-			i+=32;
+			i += 32;
         }
     }
     lseek(usb_file, root_directory_sector * bytes_per_sector, SEEK_SET);
