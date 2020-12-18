@@ -122,12 +122,13 @@ int isAtFileList(unsigned char *file_entry, char firstLetter) {
             end_pos = i;
             break;
         }
-        extension[i] = file_entry[i];
+        extension[i-8] = file_entry[i];
     }
     extension[end_pos] = '\0';
     strcat(filename, ".");
     strcat(filename, extension);
     for (int i=0; i<files_selected_amount; i++) {
+        printf("%s %s\n", filename, file_list[i]);
         if(strcmp(filename, file_list[i]) == 0) {
             return 1;
         }
@@ -168,7 +169,7 @@ int main (){
     if(option != 1) {
         printf("Type how many files you want to select (up to 100): ");
         scanf("%d", &files_selected_amount);
-        printf("\nType the name of each file with extension one per line:\n(Note: The name of the files are not case sensitive");
+        printf("\nType the name of each file with extension one per line:\n(Note: The name of the files are not case sensitive)\n");
         for (int i=0; i<files_selected_amount; i++) {
             file_list[i] = (char *)malloc(sizeof(char)*20);
             scanf("%s", file_list[i]);
