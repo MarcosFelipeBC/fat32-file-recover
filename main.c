@@ -128,7 +128,6 @@ int isAtFileList(unsigned char *file_entry, char firstLetter) {
     strcat(filename, ".");
     strcat(filename, extension);
     for (int i=0; i<files_selected_amount; i++) {
-        printf("%s %s\n", filename, file_list[i]);
         if(strcmp(filename, file_list[i]) == 0) {
             return 1;
         }
@@ -205,7 +204,7 @@ int main (){
             buffer[i+32] = toUpper(first_char);
             buffer[i] = 'A';
             files_recovered++;
-			i += 32;
+            i += 32;
         }
     }
     lseek(usb_file, root_directory_sector * bytes_per_sector, SEEK_SET);
