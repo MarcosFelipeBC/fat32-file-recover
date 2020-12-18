@@ -111,7 +111,7 @@ int isAtFileList(unsigned char *file_entry, char firstLetter) {
             end_pos = i;
             break;
         }
-        filename[i] = file_entry[i];
+        filename[i] = (char)file_entry[i];
     }
     filename[end_pos] = '\0';
 
@@ -188,7 +188,6 @@ int main (){
             unsigned char *file_entry;
             file_entry = (unsigned char *)malloc(sizeof(unsigned char)*32);
             for (int j=i+32; j<i+64; j++) file_entry[j-(i+32)] = buffer[j];
-            
             if(option == 2 && !isAtFileList(file_entry, buffer[i+1])) {
                 i += 32;
                 continue ;
