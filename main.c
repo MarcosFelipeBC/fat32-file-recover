@@ -75,7 +75,7 @@ void recoverFATs(unsigned char *file_entry) {
     lseek(usb_file, reserved_sectors * bytes_per_sector + first_cluster * 4, SEEK_SET);
     unsigned char new_clusters_entry[4];
 
-    for (int i=0, cluster = first_cluster; i<4*(used_clusters-1); i += 4, cluster++) {
+    for (int cluster = first_cluster; cluster < used_clusters-1; cluster++) {
         unsigned int val = cluster + 1;
         for (int j=0; j<4; j++) {
             new_clusters_entry[j] = val & ((1 << 8)-1);
@@ -89,7 +89,7 @@ void recoverFATs(unsigned char *file_entry) {
 
     //Recover file at FAT#2
     lseek(usb_file, (reserved_sectors + sectors_per_fat) * bytes_per_sector + first_cluster * 4, SEEK_SET);
-	for (int i=0, cluster = first_cluster; i<4*(used_clusters-1); i += 4, cluster++) {
+	for (int cluster = first_cluster; cluster < used_clusters-1; cluster++) {
         unsigned int val = cluster + 1;
         for (int j=0; j<4; j++) {
             new_clusters_entry[j] = val & ((1 << 8)-1);
